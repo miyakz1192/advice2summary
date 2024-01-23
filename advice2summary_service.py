@@ -12,6 +12,11 @@ sys.path.append("messaging/service")
 from messaging import *
 from llm_mediator import *
 
+def chunks(lst, n):
+    """リストの要素をn個ごとに分割して、リストのリストを返す関数"""
+    return [lst[i:i + n] for i in range(0, len(lst), n)]
+
+
 class Advice2SummaryService(LLMMediatorBase):
     # サービスへの要求キューからリクエストをgetした際にそれが許容されるものかどうかを判定する
     # 許容される・・・True、されない・・・False
@@ -24,7 +29,7 @@ class Advice2SummaryService(LLMMediatorBase):
 
     # LLMから結果を受け取り、サービスの結果返却キューにメッセージをpublishする
     def publish_to_res_queue(self, rec):
-        Advice2SummaryServiceResMessaging.connect_and_basic_publish_record(rec)
+        Advice2SummaryServiceResMessaging().connect_and_basic_publish_record(rec)
 
     # LLMInstanceから結果が帰ってこなかったレコードを、サービスの要求キューに入れなおす
     def publish_to_req_queue(self, rec):
@@ -47,6 +52,49 @@ class Advice2SummaryService(LLMMediatorBase):
     # たいていの場合、サービスへの要求キューに来たrecordが
     # ネタになるため、それを入力として受け取り処理する
     def _make_llm_input_text(self, rec):
-        return rec.advice_text #要求レコード内のin_text(会話の文字起こし結果)
+        filtered_list = list(filter(None, rec.advice_texts))
+        # for debug
+        self.g_orgcount = len(filtered_list)
+        self.g_count = 0
+        # ####
+        return "\n###\n".join(filtered_list) #要求レコード内のin_text(会話の文字起こし結果)
+
+    # ask_to_llmのコアをオーバーライドする。今回の処理は定形じゃないため
+    def ask_to_llm(self, input_text):
+        print(f"INFO: process_layer: {self.g_orgcount}, {self.g_count}")
+
+        if input_text.count("###") == 0:
+            return input_text
+
+        chunked_input_list = chunks(input_text.split("###"), 5)
+        next_input_text = []
+        loop_c = 0
+        for c in chunked_input_list:
+            print(f"INFO: chunked_input_list loop : {self.g_orgcount}, {self.g_count},{loop_c}/{len(chunked_input_list)}")
+            print(c)
+
+            if len(c) == 0:
+                print(f"INFO: continue")
+                loop_c += 1
+                continue
+
+            new_input = "\n###\n".join(c)
+            print(f"INFO: entering process_chunk: {self.g_orgcount}, {self.g_count}")
+            out = self._ask_to_llm_core(new_input)
+
+            # TODO: FIXME: 将来的にllm_driverからデリミタをもらうかsplitしてもらうようにする
+            summary = out.split('### 応答:')[1]
+            next_input_text.append(summary)
+            print(f"INFO: get summary : {self.g_orgcount}, {self.g_count},{loop_c}/{len(chunked_input_list)}")
+            print(summary)
+            loop_c += 1
+
+        next_input_text = "\n###\n".join(next_input_text)
+
+        g_count += 1;
+
+        print(f"INFO: go next process_layer: {self.g_orgcount}, {self.g_count}")
+        return self.ask_to_llm(next_input_text)
+
 
 Advice2SummaryService().main_loop()
