@@ -44,7 +44,9 @@ class Advice2SummaryService(LLMMediatorBase):
     # 引数にサービス要求キューに来たoriginal_recordが渡されるので、それに結果を代入して返す
     # record種別によってメンバーの名前が変わるため、個別実装になる。
     def _make_response_record(self, original_record, llm_output_text):
-        original_record.summary_text = llm_output_text
+        # TODO: FIXME: 将来的にllm_driverからデリミタをもらうかsplitしてもらうようにする
+        summary = llm_output_text.split('### 応答:')[-1]
+        original_record.summary_text = summary
         rec = original_record
         return rec
 
@@ -83,7 +85,7 @@ class Advice2SummaryService(LLMMediatorBase):
             out = self._ask_to_llm_core(new_input)
 
             # TODO: FIXME: 将来的にllm_driverからデリミタをもらうかsplitしてもらうようにする
-            summary = out.split('### 応答:')[1]
+            summary = out.split('### 応答:')[-1]
             next_input_text.append(summary)
             print(f"INFO: get summary : {self.g_orgcount}, {self.g_count},{loop_c}/{len(chunked_input_list)}")
             print(summary)
@@ -91,7 +93,7 @@ class Advice2SummaryService(LLMMediatorBase):
 
         next_input_text = "\n###\n".join(next_input_text)
 
-        g_count += 1;
+        self.g_count += 1;
 
         print(f"INFO: go next process_layer: {self.g_orgcount}, {self.g_count}")
         return self.ask_to_llm(next_input_text)
