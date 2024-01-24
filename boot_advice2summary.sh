@@ -1,8 +1,7 @@
 #!/bin/bash
 
-cd /home/miyakz/github_repos/text2advice
+cd /home/miyakz/advice2summary
 source set_cred_test.sh
-source configuration.sh
-python3 text2advice_service.py
+python3 advice2summary_service.py
 
 

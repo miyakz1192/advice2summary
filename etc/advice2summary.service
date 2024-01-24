@@ -1,8 +1,8 @@
 [Unit]
-Description=Advice Service text2advice
+Description=Advice Service advice2summary
 
 [Service]
-ExecStart=/home/miyakz/github_repos/text2advice/boot_text2advice.sh
+ExecStart=/home/miyakz/advice2summary/boot_advice2summary.sh
 Restart=always
 User=miyakz
 RestartSec=5
